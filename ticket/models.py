@@ -66,3 +66,8 @@ class Order(models.Model):
             return
         self.fulfilled = True
         self.save(update_fields=["fulfilled"])
+
+    def release_tickets(self):
+        qs = self.ticket_type.tickets.filter(order=self)
+        with transaction.atomic():
+            released_tickets = qs.update(order=None)
