@@ -2,10 +2,9 @@ from datetime import timedelta
 
 
 from django.utils import timezone
-from django.db.models import Sum
 
 
-from rest_framework import mixins, viewsets, exceptions
+from rest_framework import mixins, viewsets, exceptions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -71,7 +70,7 @@ class OrderViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, viewsets.Re
             data = {
                 'msg': 'Orders older than 30 minutes can not be cancelled'
             }
-            return Response(data)
+            return Response(data, status=status.HTTP_400_BAD_REQUEST)
 
         order.cancelled = True
         order.cancelled_at = now

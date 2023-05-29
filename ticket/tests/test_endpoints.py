@@ -1,6 +1,13 @@
 from operator import itemgetter
+from datetime import timedelta
+
+
+from django.utils.timezone import now
+
 
 from django_dynamic_fixture import G
+
+
 
 from test import APITestCase, AnyOrder, Any
 from ticket.models import Order, Event, TicketType
@@ -12,6 +19,9 @@ class EndpointsTest(APITestCase):
         cls.event = G(Event, name="Summer Party", description="We have a pool !")
         cls.ticket_type1 = G(TicketType, name="Early Bird", event=cls.event, quantity=1)
         cls.ticket_type2 = G(TicketType, name="Night Owl", event=cls.event, quantity=2)
+        created_at_less_40_mins = now() - timedelta(minutes=40)
+        cls.new_order = G(Order, ticket_type=cls.ticket_type1, quantity=1)
+        cls.old_order = G(Order, ticket_type=cls.ticket_type2, quantity=1, created_at=created_at_less_40_mins)
 
     def test_unauth_requests(self):
         unauth_event_detail_resp = self.client.get("/api/events/1")
@@ -118,3 +128,17 @@ class EndpointsTest(APITestCase):
         self.assertCountEqual([order["id"] for order in resp.data], [order_a.pk, order_b.pk])
         self.assertEqual(no_order_resp.status_code, 200)
         self.assertEqual(no_order_resp.data, [])
+
+    def test_cancel_order(self):
+        self.authorize()
+        valid_cancellation = self.client.post(
+            f"/api/orders/{self.new_order.pk}/cancel_order"
+        )
+        invalid_cancellation = self.client.post(
+            f"/api/orders/{self.old_order.pk}/cancel_order"
+        )
+        self.assertEqual(valid_cancellation.status_code, 200)
+        self.assertEqual(invalid_cancellation.status_code, 400)
+
+    def test_release_tickets(self):
+        pass
