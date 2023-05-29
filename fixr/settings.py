@@ -123,11 +123,22 @@ USE_TZ = True
 STATIC_URL = "/static/"
 
 
+RENDERER_CLASSES = (
+    'rest_framework.renderers.JSONRenderer',
+)
+
+if DEBUG:
+    RENDERER_CLASSES += 'rest_framework.renderers.BrowsableAPIRenderer',
+
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.TokenAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
-    ],
+    ]
 }
+
+if DEBUG:
+    REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] += "fixr.authentication.CsrfExemptSessionAuthentication",
