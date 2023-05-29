@@ -17,6 +17,19 @@ from ticket.serializers import EventSerializer, TicketTypeSerializer, OrderSeria
 class EventViewSet(viewsets.ModelViewSet, viewsets.ReadOnlyModelViewSet):
     serializer_class = EventSerializer
     queryset = Event.objects.prefetch_related("ticket_types")
+    permission_classes = ()
+
+    @action(methods=['GET'], detail=True, permission_classes=permission_classes)
+    def get_count_orders(self, request, *args, **kwargs):
+        event = self.get_object()
+        orders = Order.objects.filter(ticket_type__event=event).distinct()
+        count_orders = orders.count()
+        cancellation_rate = (orders.filter(cancelled=True).count()/count_orders) * 100
+        data = {
+            "count_orders": count_orders,
+            "cancellation_rate": cancellation_rate
+        }
+        return Response(data)
 
 
 class TicketTypeViewset(mixins.CreateModelMixin, viewsets.ReadOnlyModelViewSet):
@@ -33,6 +46,15 @@ class OrderViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, viewsets.Re
     def get_queryset(self):
         qs = super().get_queryset()
         return qs.filter(user=self.request.user)
+
+    @action(methods=['GET'], detail=False, permission_classes=permission_classes)
+    def get_date_highest_cancellations(self, request, *args, **kwargs):
+        highest_cancellations = Order.get_date_highest_cancellations()
+        data = {
+            'date': highest_cancellations['date_cancelled'],
+            'number_of_cancellations': highest_cancellations['cancelled_ticket_sum']
+        }
+        return Response(data)
 
     def perform_create(self, serializer):
         order = serializer.save(user=self.request.user)

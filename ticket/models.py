@@ -1,4 +1,5 @@
 from django.db import models, transaction
+from django.db.models import Sum
 from django.conf import settings
 
 
@@ -71,3 +72,14 @@ class Order(models.Model):
         qs = self.ticket_type.tickets.filter(order=self)
         with transaction.atomic():
             released_tickets = qs.update(order=None)
+
+    @classmethod
+    def get_date_highest_cancellations(cls):
+        cancelled_orders = cls.objects \
+            .filter(cancelled=True) \
+            .extra({'date_cancelled': "date(cancelled_at)"}) \
+            .values('date_cancelled') \
+            .annotate(cancelled_ticket_sum=Sum('quantity')) \
+            .order_by('-cancelled_ticket_sum')
+        highest_cancellations = cancelled_orders.first()
+        return highest_cancellations
