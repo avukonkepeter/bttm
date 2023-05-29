@@ -6,11 +6,14 @@ class Event(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField()
 
+    def __str__(self):
+        return f"{self.name}"
+
 
 class TicketType(models.Model):
     name = models.CharField(max_length=255)
     event = models.ForeignKey(Event, related_name="ticket_types", on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField(default=1, editable=False)
+    quantity = models.PositiveIntegerField(default=1)
 
     quantity.help_text = "The number of actual tickets available upon creation"
 
@@ -22,6 +25,9 @@ class TicketType(models.Model):
         super().save(*args, **kwargs)
         if new:
             self.tickets.bulk_create([Ticket(ticket_type=self)] * self.quantity)
+
+    def __str__(self):
+        return f"{self.name} - {self.event} (Quantity: {self.quantity})"
 
 
 class Ticket(models.Model):
@@ -36,8 +42,18 @@ class Order(models.Model):
     ticket_type = models.ForeignKey(TicketType, related_name="orders", on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField()
     fulfilled = models.BooleanField(default=False)
+    cancelled = models.BooleanField(default=False)
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        null=False,
+    )
+    cancelled_at = models.DateTimeField(
+        null=True, blank=True
+    )
 
     def book_tickets(self):
+        # TODO: Add limitations based on available_tickets & quantity as this will fail in cases where the quantity
+        #  exceeeds the available tickets
         if self.fulfilled:
             raise Exception("Order already fulfilled")
         qs = self.ticket_type.available_tickets().select_for_update(skip_locked=True)[: self.quantity]
@@ -46,7 +62,7 @@ class Order(models.Model):
                 updated_count = self.ticket_type.tickets.filter(id__in=qs).update(order=self)
                 if updated_count != self.quantity:
                     raise Exception
-        except Exception:
+        except Exception as e:
             return
         self.fulfilled = True
         self.save(update_fields=["fulfilled"])
